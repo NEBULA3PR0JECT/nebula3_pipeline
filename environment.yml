@@ -1,4 +1,4 @@
-name: nebula_database 
+name: base
 channels:
   - conda-forge
   - defaults
