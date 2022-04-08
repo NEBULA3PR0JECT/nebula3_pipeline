@@ -1,38 +1,51 @@
-import random
-import sys
 import time
+import threading
+
 from nebula3_database.movie_db import MOVIE_DB
 from nebula3_database.database.arangodb import DatabaseConnector
 from nebula3_database.config import NEBULA_CONF
 
 
-class PIPELINE_API:
+class PipelineApi:
     def __init__(self):
         config = NEBULA_CONF()
+        self.running = True
         self.database = config.get_database_name()
         self.dbconn = DatabaseConnector()
         self.db = self.dbconn.connect_db(self.database)
         self.movie_db = MOVIE_DB(self.db)
+
+    def __del__(self):
+        self.running = False
+        if (self.event_thread and self.event_thread.is_alive()):
+            self.event_thread.join()
+
+    def subscription_loop(self, entity_name: str, entity_dependency: str, msg_cb):
+        while self.running:
+            # Signaling your code, that we have newly uploaded movie, frames are stored in S3.
+            # Returns movie_id in form: Movie/<xxxxx>
+            movies = self.wait_for_change(entity_name, entity_dependency)
+            for movie in movies:
+                msg_cb(movie)
+            self.update_expert_status(entity_name) #Update scheduler, set it to done status
+
+    def subscribe(self, entity_name: str, entity_dependency: str, msg_cb):
+        """subscribe for msgs
+
+        Args:
+            entity_name (str): the pipeline entity name
+            entity_dependency (str): the pipeline entity dependency
+            msg_cb (_type_): _description_
+        """
+        self.event_thread = threading.Thread(target=self.event_loop,
+                                             args=[entity_name, entity_dependency, msg_cb])
+        self.event_thread.start()
 
     def get_new_movies(self):
         return self.movie_db.get_new_movies()
 
     def get_all_movies(self):
         return self.movie_db.get_all_movies()
-
-    # def get_plugins(self):
-    #     self.experts = []
-    #     query = 'FOR doc IN nebula_experts RETURN doc'
-    #     cursor = self.db.aql.execute(query)
-    #     for data in cursor:
-    #         #print(data)
-    #         self.experts.append(data)
-
-    # def register_plugin(self, port, _module, klass, filter):
-    #     self.filter = filter
-    #     self.port = port
-    #     self._module = _module
-    #     self.klass = klass
 
     def get_versions(self):
         versions = []
@@ -94,29 +107,11 @@ class PIPELINE_API:
             txn_db.commit_transaction()
             return True
 
-    # def force_start_expert(self, expert):
-    #     print("Updating global version")
-    #     query = 'FOR doc IN changes UPDATE doc WITH {' + expert + ': doc.'+ expert + ' - 1} in changes'
-    #     #print(query)
-    #     self.db.aql.execute(query)
-
-    # def change_status_movie(self, status, movie_id):
-    #     query = 'FOR doc IN Movies FILTER doc._id == \'' + movie_id + '\' UPDATE doc WITH {status: \''+ status +'\' } in Movies'
-    #     self.db.aql.execute(query)
-
-    # def get_all_expert_data(self, expert, movie_id):
-    #     #Actions, Actors
-    #     expert_data = []
-    #     query = 'FOR doc IN Nodes FILTER doc.arango_id == \'' + movie_id + '\' AND doc.class == \'' + expert + '\'AND (HAS(doc,"bboxes") OR HAS(doc,"box")) RETURN doc'
-    #     cursor = self.db.aql.execute(query)
-    #     for node in cursor:
-    #         expert_data.append(node)
-    #     return(expert_data)
 
 ## for testing uncomment next line
 #__name__ = 'test'
 def test():
-    pipeline = PIPELINE_API()
+    pipeline = PipelineApi()
     movies = pipeline.get_new_movies()
     print(movies)
     versions = pipeline.get_versions()
