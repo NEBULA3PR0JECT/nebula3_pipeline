@@ -1,15 +1,17 @@
 import time
 import threading
-
+import logging
 from nebula3_database.movie_db import MOVIE_DB
 from nebula3_database.database.arangodb import DatabaseConnector
 from nebula3_database.config import NEBULA_CONF
 
 
 class PipelineApi:
-    def __init__(self):
+    def __init__(self, logger: logging.Logger):
         config = NEBULA_CONF()
         self.running = True
+        self.logger = logger
+        self.subscriptions = list()
         self.database = config.get_database_name()
         self.dbconn = DatabaseConnector()
         self.db = self.dbconn.connect_db(self.database)
@@ -17,8 +19,9 @@ class PipelineApi:
 
     def __del__(self):
         self.running = False
-        if (self.event_thread and self.event_thread.is_alive()):
-            self.event_thread.join()
+        for sub_thread in self.subscriptions:
+            if (sub_thread.is_alive()):
+                sub_thread.join()
 
     def subscription_loop(self, entity_name: str, entity_dependency: str, msg_cb):
         while self.running:
@@ -37,9 +40,10 @@ class PipelineApi:
             entity_dependency (str): the pipeline entity dependency
             msg_cb (_type_): _description_
         """
-        self.event_thread = threading.Thread(target=self.event_loop,
+        sub_thread = threading.Thread(target=self.event_loop,
                                              args=[entity_name, entity_dependency, msg_cb])
-        self.event_thread.start()
+        sub_thread.start()
+        self.subscriptions.append(sub_thread)
 
     def get_new_movies(self):
         return self.movie_db.get_new_movies()
