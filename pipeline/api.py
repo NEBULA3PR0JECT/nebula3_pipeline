@@ -7,10 +7,10 @@ from nebula3_database.config import NEBULA_CONF
 
 
 class PIPELINE_API:
-    def __init__(self, logger: logging.Logger):
+    def __init__(self): # logger: logging.Logger
         config = NEBULA_CONF()
         self.running = True
-        self.logger = logger
+        # self.logger = logger
         self.subscriptions = list()
         self.database = config.get_database_name()
         self.dbconn = DatabaseConnector()
