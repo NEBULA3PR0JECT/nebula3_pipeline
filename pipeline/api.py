@@ -6,7 +6,7 @@ from nebula3_database.database.arangodb import DatabaseConnector
 from nebula3_database.config import NEBULA_CONF
 
 
-class PipelineApi:
+class PIPELINE_API:
     def __init__(self, logger: logging.Logger):
         config = NEBULA_CONF()
         self.running = True
@@ -15,7 +15,7 @@ class PipelineApi:
         self.database = config.get_database_name()
         self.dbconn = DatabaseConnector()
         self.db = self.dbconn.connect_db(self.database)
-        self.movie_db = MOVIE_DB(self.db)
+        self.movie_db = MOVIE_DB()
 
     def __del__(self):
         self.running = False
