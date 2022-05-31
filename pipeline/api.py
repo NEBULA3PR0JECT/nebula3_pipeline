@@ -1,6 +1,11 @@
+import os
+import sys
 import time
 import threading
 import logging
+# add project root to path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
+
 from nebula3_database.movie_db import MOVIE_DB
 from nebula3_database.database.arangodb import DatabaseConnector
 from nebula3_database.config import NEBULA_CONF
